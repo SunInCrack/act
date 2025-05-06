@@ -1,6 +1,9 @@
 import torch
 import numpy as np
 import os
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "4"
+
 import pickle
 import argparse
 import matplotlib.pyplot as plt

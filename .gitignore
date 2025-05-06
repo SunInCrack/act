@@ -3,11 +3,16 @@ logs
 wandb
 outputs
 data
+datasets/
+checkpoints/
 data_local
 .vscode
 _wandb
 
 **/.DS_Store
+*.hdf5
+*.ckpt
+*.pth
 
 fuse.cfg
 
