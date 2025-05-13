@@ -30,6 +30,13 @@ SIM_TASK_CONFIGS = {
         'episode_len': 500,
         'camera_names': ['top']
     },
+
+    'sim_object_placement':{
+        'dataset_dir': DATA_DIR + '/sim_object_placement',
+        'num_episodes': 255,
+        'episode_len': None,
+        'camera_names': ['observation_images_cam_exterior', 'observation_images_cam_wrist']
+    },
 }
 
 ### Simulation envs fixed constants
