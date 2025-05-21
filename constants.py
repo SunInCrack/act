@@ -35,7 +35,7 @@ SIM_TASK_CONFIGS = {
         'dataset_dir': DATA_DIR + '/sim_object_placement',
         'num_episodes': 255,
         'episode_len': None,
-        'camera_names': ['observation_images_cam_exterior', 'observation_images_cam_wrist']
+        'camera_names': ['observation_images_cam_exterior']
     },
 }
 
