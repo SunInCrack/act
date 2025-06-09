@@ -1,6 +1,7 @@
 import h5py
 import os
 from utils import load_data
+import socket
 
 def print_h5(items):
     for key, item in items:
@@ -14,18 +15,18 @@ def print_h5(items):
 # path = "datasets/sim_transfer_cube_scripted/episode_0.hdf5"
 # path = "datasets/sim_object_placement/episode_134.h5"
 
-dir = 'datasets/sim_object_placement'
+dir = 'datasets/sim_pick_banana'
 episode_len = []
 
 # 打开HDF5文件
-for file in os.listdir(dir):
+for file in os.listdir(dir)[:1]:
     with h5py.File(os.path.join(dir, file), 'r') as file:
         # 打印所有顶级项（即组和数据集）的名称
         # print("顶级项:")
         # for key in file.keys():
         #     print(key)
 
-        # print_h5(file.items())
+        print_h5(file.items())
 
         # print(file["/frames/action"][0])
         # print(file["/frames/language_instruction"][0])
@@ -34,7 +35,10 @@ for file in os.listdir(dir):
         # print(file["/frames/state"][0])
         # print(list(file.attrs))
 
-        episode_len.append(file["/frames/action"].shape[0])
-print(sorted(episode_len))
+        # episode_len.append(file["/frames/action"].shape[0])
 
-load_data("datasets/sim_object_placement", ["a"], 1, 1, True)
+        # episode_len.append(file["/action"].shape[0])
+# print(sorted(episode_len))
+
+# load_data("datasets/sim_object_placement", ["a"], 1, 1, True)
+

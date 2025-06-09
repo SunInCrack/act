@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "4"
+os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 
 import pickle
 import argparse

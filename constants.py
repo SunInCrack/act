@@ -37,6 +37,13 @@ SIM_TASK_CONFIGS = {
         'episode_len': None,
         'camera_names': ['observation_images_cam_exterior']
     },
+
+    'sim_pick_banana':{
+        'dataset_dir': DATA_DIR + '/sim_pick_banana',
+        'num_episodes': 112,
+        'episode_len': None,
+        'camera_names': ['cam1', 'cam2', 'cam3']
+    },
 }
 
 ### Simulation envs fixed constants

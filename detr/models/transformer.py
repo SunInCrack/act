@@ -72,7 +72,7 @@ class Transformer(nn.Module):
         tgt = torch.zeros_like(query_embed)
         memory = self.encoder(src, src_key_padding_mask=mask, pos=pos_embed)
         hs = self.decoder(tgt, memory, memory_key_padding_mask=mask,
-                          pos=pos_embed, query_pos=query_embed)
+                          pos=pos_embed, query_pos=query_embed)             # The encoder and the decodeer shares the same mask!
         hs = hs.transpose(1, 2)
         return hs
 
