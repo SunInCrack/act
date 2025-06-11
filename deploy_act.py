@@ -13,10 +13,11 @@ from airbot_py.arm import RobotMode, SpeedProfile
 from typing import Dict, List, Optional, List
 from types import SimpleNamespace
 import pyudev
-from examples.airbot.constants import CAM_HIGH, CAM_LEFT_WRIST, CAM_RIGHT_WRIST
+# from examples.airbot.constants import CAM_HIGH, CAM_LEFT_WRIST, CAM_RIGHT_WRIST
 
 from client.client import WebsocketPolicyClient
-#CAM_HIGH, CAM_LEFT_WRIST, CAM_RIGHT_WRIST = "cam_high", "cam_left_wrist", "cam_right_wrist"
+# CAM_HIGH, CAM_LEFT_WRIST, CAM_RIGHT_WRIST = "cam_high", "cam_left_wrist", "cam_right_wrist"
+CAM_LEFT_WRIST, CAM_HIGH, CAM_RIGHT_WRIST = "cam1", "cam2", "cam3"
 
 class OpenCVCamera:
     """
@@ -527,6 +528,7 @@ class AIRBOTPlay:
             # print(f"→ Follower {i} end_position: {follower_robot[i].get_eef_pos()}")
             state.extend(follower_robot[i].get_joint_pos())
             state.extend(follower_robot[i].get_eef_pos())
+        state = np.array(state, dtype=np.float32)
         data["observation.state"] = state
         return data
 
