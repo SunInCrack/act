@@ -31,16 +31,6 @@ class Args:
 all_time_actions = None
 all_actions = None
 
-def get_image(ts, camera_names):
-    curr_images = []
-    for cam_name in camera_names:
-        # curr_image = rearrange(ts.observation['images'][cam_name], 'h w c -> c h w')
-        curr_image = np.transpose(ts.observation['images'][cam_name], (2, 0, 1))
-        curr_images.append(curr_image)
-    curr_image = np.stack(curr_images, axis=0, dtype=np.float32) / 255.0
-    curr_image = np.expand_dims(curr_image, axis=0)
-    return curr_image
-
 def get_act_action(obs: dict, policy: WebsocketPolicyClient, stats: dict, state_dim: int, num_queries: int, 
                    temporal_agg: bool, t: int, max_timesteps: int, camera_names: list) -> np.ndarray:
     global all_time_actions, all_actions
