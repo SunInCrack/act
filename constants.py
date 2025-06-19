@@ -39,10 +39,11 @@ SIM_TASK_CONFIGS = {
     },
 
     'sim_pick_banana':{
-        'dataset_dir': DATA_DIR + '/sim_pick_banana',
-        'num_episodes': 112,
+        'dataset_dir': '/data/dataset/real/aloha/data/hdf5_without_put/pick_put_banana_0616',
+        'num_episodes': 0,
         'episode_len': None,
-        'camera_names': ['cam1', 'cam2', 'cam3']
+        # 'camera_names': ['cam1', 'cam2', 'cam3'],
+        'camera_names': ['cam2']
     },
 }
 

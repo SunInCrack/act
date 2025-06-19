@@ -9,6 +9,8 @@ from client import msgpack_numpy
 import websockets.asyncio.server
 import websockets.frames
 
+import time
+
 
 class WebsocketPolicyServer:
     """Serves a policy using the websocket protocol. See websocket_client_policy.py for a client implementation.
@@ -51,8 +53,11 @@ class WebsocketPolicyServer:
         while True:
             try:
                 obs = msgpack_numpy.unpackb(await websocket.recv())
-                action = self._policy(qpos=torch.from_numpy(obs["qpos"]).cuda(), 
-                                      image=torch.from_numpy(obs["image"]).cuda())
+                start = time.time()
+                action = self._policy(qpos=torch.from_numpy(obs["qpos"].copy()).cuda(), 
+                                      image=torch.from_numpy(obs["image"].copy()).cuda())
+                end = time.time()
+                print(f"Single inference time: {end - start}")
                 await websocket.send(packer.pack(action.detach().cpu().numpy()))
             except websockets.ConnectionClosed:
                 logging.info(f"Connection from {websocket.remote_address} closed")
