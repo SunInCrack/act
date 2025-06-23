@@ -43,7 +43,8 @@ SIM_TASK_CONFIGS = {
         'num_episodes': 0,
         'episode_len': None,
         # 'camera_names': ['cam1', 'cam2', 'cam3'],
-        'camera_names': ['cam2']
+        # 'camera_names': ['cam2']    # exp8
+        'camera_names': ['cam2', 'cam3']    # exp9
     },
 }
 

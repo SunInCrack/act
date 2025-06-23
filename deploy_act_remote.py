@@ -663,10 +663,8 @@ def get_act_action(obs: dict, policy: WebsocketPolicyClient, stats: dict, state_
     return target_qpos
 
 if __name__ == "__main__":
-    num_queries: int = 100
     temporal_agg: bool = True
     max_timesteps: int = 1000
-    camera_names: list[str] = ["cam1", "cam2", "cam3"]
 
     robot = AIRBOTPlay()
     print("obs1:", robot.capture_observation())
@@ -685,6 +683,8 @@ if __name__ == "__main__":
     logging.info(f"Server metadata: {metadata}")
     stats = metadata["stats"]
     state_dim = metadata["state_dim"]
+    num_queries = metadata["policy_config"]["num_queries"]
+    camera_names = metadata["camera_names"]
 
     # Send 1 observation to make sure the model is loaded.
     # action = policy.infer(obs_fn())
