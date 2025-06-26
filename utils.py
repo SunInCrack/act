@@ -8,12 +8,13 @@ import IPython
 e = IPython.embed
 
 class EpisodicDataset(torch.utils.data.Dataset):
-    def __init__(self, episode_ids, camera_names, norm_stats, is_sim):
+    def __init__(self, episode_ids, camera_names, norm_stats, is_sim, chunk_size):
         super(EpisodicDataset).__init__()
         self.episode_ids = episode_ids
         self.camera_names = camera_names
         self.norm_stats = norm_stats
         self.is_sim = is_sim
+        self.chunk_size = chunk_size
         # self.__getitem__(0) # initialize self.is_sim
 
     def __len__(self):
@@ -30,7 +31,7 @@ class EpisodicDataset(torch.utils.data.Dataset):
             if sample_full_episode:
                 start_ts = 0
             else:
-                start_ts = np.random.choice(episode_len - 100)  # 保证其动作序列长度不会比detr的num_queries短，导致维数错误（有点简陋）
+                start_ts = np.random.choice(episode_len)  # 保证其动作序列长度不会比detr的num_queries短，导致维数错误（有点简陋）
             # get observation at start_ts only
             state = root['/observations/qpos'][start_ts]
             image_dict = dict()
@@ -110,7 +111,7 @@ def collate_fn(batch):
     action_data, is_pad = [torch.stack([item[: min_len] for item in items]) for items in batch[2: ]]
     return image_data, state_data, action_data, is_pad
 
-def load_data(dataset_dir, camera_names, batch_size_train, batch_size_val, is_sim):
+def load_data(dataset_dir, camera_names, batch_size_train, batch_size_val, is_sim, chunk_size):
     print(f'\nData from: {dataset_dir}\n')
     # obtain train test split
     long_episodes = []
@@ -128,10 +129,10 @@ def load_data(dataset_dir, camera_names, batch_size_train, batch_size_val, is_si
     norm_stats = get_norm_stats(dataset_dir, shuffled_indices)
 
     # construct dataset and dataloader
-    train_dataset = EpisodicDataset(train_indices, camera_names, norm_stats, is_sim)
-    val_dataset = EpisodicDataset(val_indices, camera_names, norm_stats, is_sim)
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size_train, collate_fn=collate_fn, shuffle=True, pin_memory=True, num_workers=32, prefetch_factor=1)
-    val_dataloader = DataLoader(val_dataset, batch_size=batch_size_val, collate_fn=collate_fn, shuffle=True, pin_memory=True, num_workers=32, prefetch_factor=1)
+    train_dataset = EpisodicDataset(train_indices, camera_names, norm_stats, is_sim, chunk_size)
+    val_dataset = EpisodicDataset(val_indices, camera_names, norm_stats, is_sim, chunk_size)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size_train, collate_fn=collate_fn, shuffle=True, pin_memory=True, num_workers=8, prefetch_factor=1)
+    val_dataloader = DataLoader(val_dataset, batch_size=batch_size_val, collate_fn=collate_fn, shuffle=True, pin_memory=True, num_workers=8, prefetch_factor=1)
 
     return train_dataloader, val_dataloader, norm_stats, train_dataset.is_sim
 

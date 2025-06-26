@@ -39,12 +39,20 @@ SIM_TASK_CONFIGS = {
     },
 
     'sim_pick_banana':{
-        'dataset_dir': '/data/dataset/real/aloha/data/hdf5_without_put/pick_put_banana_0616',
+        'dataset_dir': '/data/dataset/real/aloha/data/clean_data_without_split/hdf5/pick_put_banana_0616',
         'num_episodes': 0,
         'episode_len': None,
         # 'camera_names': ['cam1', 'cam2', 'cam3'],
         # 'camera_names': ['cam2']    # exp8
-        'camera_names': ['cam2', 'cam3']    # exp9
+        'camera_names': ['cam2', 'cam3']    # exp9, exp10, exp11, exp12
+    },
+    'sim_pick_cube':{
+        'dataset_dir': '/data/dataset/real/aloha/data/clean_data_without_split/hdf5/pick_put_cube_0624',
+        'num_episodes': 0,
+        'episode_len': None,
+        # 'camera_names': ['cam1', 'cam2', 'cam3'],
+        'camera_names': ['cam2']    # exp0, exp1
+        # 'camera_names': ['cam2', 'cam3']    # exp13, exp14
     },
 }
 

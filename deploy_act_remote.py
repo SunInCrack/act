@@ -699,9 +699,21 @@ if __name__ == "__main__":
 
     start = time.time()
     for i in range(max_timesteps):
-        action = get_act_action(robot.capture_observation(), policy, stats, state_dim, num_queries, temporal_agg, 
+        obs = robot.capture_observation()
+
+        for cam_name in camera_names:
+            view = cv2.putText(obs[f"observation.images.{cam_name}"], f"frame {i}", (10, 30), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
+            cv2.imshow(cam_name, view)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+        action = get_act_action(obs, policy, stats, state_dim, num_queries, temporal_agg, 
                                 i, max_timesteps, camera_names)
         robot.send_action(action)
+
+        print(f"Average FPS: {(i + 1) / (time.time() - start)} Hz")
+
     end = time.time()
 
     print(f"Total time taken: {end - start:.2f} s")

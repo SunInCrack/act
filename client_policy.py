@@ -6,6 +6,7 @@ import time
 import os
 import pickle
 
+import cv2
 import numpy as np
 from client.client import WebsocketPolicyClient
 import tyro
@@ -48,7 +49,6 @@ def get_act_action(obs: dict, policy: WebsocketPolicyClient, stats: dict, state_
         all_time_actions = np.zeros([max_timesteps, max_timesteps+num_queries, state_dim])
 
     ### process previous timestep to get qpos and image_list
-    obs = simulate_aloha_obs()
     qpos_numpy = np.array(obs["observation.state"])
     qpos = pre_process(qpos_numpy)
     qpos = np.expand_dims(qpos, axis=0)
@@ -123,12 +123,25 @@ def main(args: Args) -> None:
 
     start = time.time()
     for i in range(args.num_steps):
-        action = get_act_action(obs_fn(), policy, stats, state_dim, num_queries, temporal_agg, 
+        obs = simulate_aloha_obs()
+
+        # for cam_name in camera_names:
+        #     view = cv2.putText(obs[f"observation.images.{cam_name}"], f"frame {i}", (10, 30), 
+        #             cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
+        #     cv2.imshow(cam_name, view)
+        #     if cv2.waitKey(1) & 0xFF == ord('q'):
+        #         break
+
+        action = get_act_action(obs, policy, stats, state_dim, num_queries, temporal_agg, 
                                 i, max_timesteps, camera_names)
+        print(f"Average FPS: {(i + 1) / (time.time() - start)} Hz")
+        
     end = time.time()
 
     print(f"Total time taken: {end - start:.2f} s")
     print(f"Average inference time: {1000 * (end - start) / args.num_steps:.2f} ms")
+    
+    cv2.destroyAllWindows()
 
 def simulate_aloha_obs():
     return {

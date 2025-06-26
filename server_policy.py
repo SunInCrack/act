@@ -5,7 +5,7 @@ import logging
 import socket
 import pickle
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 
 import torch
 
@@ -105,7 +105,7 @@ def main(args) -> None:
         'stats': stats
     }
 
-    ckpt_path = os.path.join(ckpt_dir, f'policy_best.ckpt')
+    ckpt_path = os.path.join(ckpt_dir, f'policy_epoch_6000_seed_0.ckpt')
     policy = make_policy(policy_class, policy_config)
     loading_status = policy.load_state_dict(torch.load(ckpt_path, weights_only=True))
     print(loading_status)
