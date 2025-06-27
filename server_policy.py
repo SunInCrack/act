@@ -5,7 +5,7 @@ import logging
 import socket
 import pickle
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 import torch
 
