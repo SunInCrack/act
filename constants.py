@@ -43,16 +43,31 @@ SIM_TASK_CONFIGS = {
         'num_episodes': 0,
         'episode_len': None,
         # 'camera_names': ['cam1', 'cam2', 'cam3'],
-        # 'camera_names': ['cam2']    # exp8
-        'camera_names': ['cam2', 'cam3']    # exp9, exp10, exp11, exp12, exp15
+        # 'camera_names': ['cam2'],    # exp8
+        'camera_names': ['cam2', 'cam3'],    # exp9, exp10, exp11, exp12, exp15
+        'state': '/observations/qpos',
+        'action': '/action',
+        'images': '/observations/images',
     },
     'sim_pick_cube':{
         'dataset_dir': '/data/dataset/real/aloha/data/clean_data_without_split/hdf5/pick_put_cube_0624',
         'num_episodes': 0,
         'episode_len': None,
         # 'camera_names': ['cam1', 'cam2', 'cam3'],
-        # 'camera_names': ['cam2']    # exp0, exp1
-        'camera_names': ['cam2', 'cam3']    # exp13, exp14, exp3
+        # 'camera_names': ['cam2'],    # exp0, exp1
+        'camera_names': ['cam2', 'cam3'],    # exp13, exp14, exp3
+        'state': '/observations/qpos',
+        'action': '/action',
+        'images': '/observations/images',
+    },
+    'sim_pick_candy':{
+        'dataset_dir': '/data/dataset/univla/20250619+so100+simple+pick_up_the_candy_and_put_it_to_the_circle',
+        'num_episodes': 0,
+        'episode_len': None,
+        'camera_names': ['cam_head', 'cam_left'],    # exp
+        'state': '/observations/gpos',
+        'action': '/action',
+        'images': '/observations/images',
     },
 }
 

@@ -16,7 +16,7 @@ def print_h5(items):
 # path = "datasets/sim_transfer_cube_scripted/episode_0.hdf5"
 # path = "datasets/sim_object_placement/episode_134.h5"
 
-dir = '/data/dataset/real/aloha/data/clean_data_without_split/hdf5/pick_put_banana_0604'
+dir = '/data/dataset/univla/20250619+so100+simple+pick_up_the_candy_and_put_it_to_the_circle'
 episode_len = []
 
 # 打开HDF5文件
@@ -32,14 +32,17 @@ for file in os.listdir(dir)[: 1]:
         # print(file["/frames/action"][0])
         # print(file["/frames/language_instruction"][0])
         # print(file["/frames/observation_images_cam_exterior"][0])
-        # print(file["/observations/images/cam2"][0])
+        # print(file["/observations/images/cam_head"][0].shape)
         # print(file["/frames/observation_images_cam_wrist"][0])
         # print(file["/frames/state"][0])
+        print(file["/action"].shape)
+        print(file["/action_gpos"][0])
+        print(file["/observations/gpos"][0])
         # print(list(file.attrs))
 
         # episode_len.append(file["/frames/action"].shape[0])
 
-        cv2.imwrite("cam2.png", file["/observations/images/cam2"][0])
+        # cv2.imwrite("cam2.png", file["/observations/images/cam2"][0])
 
 #         episode_len.append(file["/action"].shape[0])
 # print(sorted(episode_len))

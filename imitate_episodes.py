@@ -2,12 +2,13 @@ import torch
 import numpy as np
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 import pickle
 import argparse
 import matplotlib.pyplot as plt
 from copy import deepcopy
+import h5py
 from tqdm import tqdm
 from einops import rearrange
 
@@ -49,9 +50,13 @@ def main(args):
     num_episodes = task_config['num_episodes']
     episode_len = task_config['episode_len']
     camera_names = task_config['camera_names']
+    state = task_config['state']
+    action = task_config['action']
+    images = task_config['images']
 
     # fixed parameters
-    state_dim = 14
+    with h5py.File(os.path.join(dataset_dir, os.listdir(dataset_dir)[0]), 'r') as f:
+        state_dim = f[state].shape[-1]
     lr_backbone = 1e-5
     backbone = 'resnet18'
     if policy_class == 'ACT':
@@ -59,12 +64,19 @@ def main(args):
         dec_layers = 7
         nheads = 8
         policy_config = {'lr': args['lr'],
+                         'weight_decay': args['weight_decay'],
                          'num_queries': args['chunk_size'],
                          'kl_weight': args['kl_weight'],
+                         'state_dim': state_dim,
                          'hidden_dim': args['hidden_dim'],
                          'dim_feedforward': args['dim_feedforward'],
                          'lr_backbone': lr_backbone,
                          'backbone': backbone,
+                         'dropout': args['dropout'],
+                         'pre_norm': args['pre_norm'],
+                         'position_embedding': args['position_embedding'],
+                         'masks': args['masks'],
+                         'dilation': args['dilation'],
                          'enc_layers': enc_layers,
                          'dec_layers': dec_layers,
                          'nheads': nheads,
@@ -89,7 +101,12 @@ def main(args):
         'seed': args['seed'],
         'temporal_agg': args['temporal_agg'],
         'camera_names': camera_names,
-        'real_robot': not is_sim
+        'hdf5_keys': {
+            'state': state,
+            'action': action,
+            'images': images,
+        },
+        'real_robot': not is_sim,
     }
 
     if is_eval:
@@ -104,7 +121,7 @@ def main(args):
         print()
         exit()
 
-    train_dataloader, val_dataloader, stats, _ = load_data(dataset_dir, camera_names, batch_size_train, batch_size_val, is_sim, chunk_size)
+    train_dataloader, val_dataloader, stats, _ = load_data(dataset_dir, camera_names, batch_size_train, batch_size_val, is_sim, chunk_size, config['hdf5_keys'])
 
     # save dataset stats
     if not os.path.isdir(ckpt_dir):
@@ -419,6 +436,42 @@ def plot_history(train_history, validation_history, num_epochs, ckpt_dir, seed):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+
+    parser.add_argument('--lr_backbone', default=1e-5, type=float) # will be overridden
+    parser.add_argument('--weight_decay', default=1e-4, type=float)
+    parser.add_argument('--epochs', default=300, type=int) # not used
+    parser.add_argument('--lr_drop', default=200, type=int) # not used
+    parser.add_argument('--clip_max_norm', default=0.1, type=float, # not used
+                        help='gradient clipping max norm')
+
+    # Model parameters
+    # * Backbone
+    parser.add_argument('--backbone', default='resnet18', type=str, # will be overridden
+                        help="Name of the convolutional backbone to use")
+    parser.add_argument('--dilation', action='store_true',
+                        help="If true, we replace stride with dilation in the last convolutional block (DC5)")
+    parser.add_argument('--position_embedding', default='sine', type=str, choices=('sine', 'learned'),
+                        help="Type of positional embedding to use on top of the image features")
+    parser.add_argument('--camera_names', default=[], type=list, # will be overridden
+                        help="A list of camera names")
+
+    # * Transformer
+    parser.add_argument('--enc_layers', default=4, type=int, # will be overridden
+                        help="Number of encoding layers in the transformer")
+    parser.add_argument('--dec_layers', default=6, type=int, # will be overridden
+                        help="Number of decoding layers in the transformer")
+    parser.add_argument('--dropout', default=0.1, type=float,
+                        help="Dropout applied in the transformer")
+    parser.add_argument('--nheads', default=8, type=int, # will be overridden
+                        help="Number of attention heads inside the transformer's attentions")
+    parser.add_argument('--num_queries', default=400, type=int, # will be overridden
+                        help="Number of query slots")
+    parser.add_argument('--pre_norm', action='store_true')
+
+    # * Segmentation
+    parser.add_argument('--masks', action='store_true',
+                        help="Train segmentation head if the flag is provided")
+
     parser.add_argument('--eval', action='store_true')
     parser.add_argument('--onscreen_render', action='store_true')
     parser.add_argument('--ckpt_dir', action='store', type=str, help='ckpt_dir', required=True)

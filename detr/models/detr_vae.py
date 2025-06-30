@@ -228,7 +228,7 @@ def build_encoder(args):
 
 
 def build(args):
-    state_dim = 14 # TODO hardcode
+    state_dim = args.state_dim # softcode
 
     # From state
     # backbone = None # from state for now, no need for conv nets
@@ -256,7 +256,7 @@ def build(args):
     return model
 
 def build_cnnmlp(args):
-    state_dim = 14 # TODO hardcode
+    state_dim = args["state_dim"] # softcode
 
     # From state
     # backbone = None # from state for now, no need for conv nets

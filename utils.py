@@ -8,13 +8,14 @@ import IPython
 e = IPython.embed
 
 class EpisodicDataset(torch.utils.data.Dataset):
-    def __init__(self, episode_ids, camera_names, norm_stats, is_sim, chunk_size):
+    def __init__(self, episode_ids, camera_names, norm_stats, is_sim, chunk_size, hdf5_keys):
         super(EpisodicDataset).__init__()
         self.episode_ids = episode_ids
         self.camera_names = camera_names
         self.norm_stats = norm_stats
         self.is_sim = is_sim
         self.chunk_size = chunk_size
+        self.hdf5_keys = hdf5_keys
         # self.__getitem__(0) # initialize self.is_sim
 
     def __len__(self):
@@ -26,23 +27,23 @@ class EpisodicDataset(torch.utils.data.Dataset):
         dataset_path = self.episode_ids[index]
         with h5py.File(dataset_path, 'r') as root:
             # is_sim = root.attrs['sim']
-            original_action_shape = root['/action'].shape
+            original_action_shape = root[self.hdf5_keys['action']].shape
             episode_len = original_action_shape[0]
             if sample_full_episode:
                 start_ts = 0
             else:
                 start_ts = np.random.choice(episode_len)  # 保证其动作序列长度不会比detr的num_queries短，导致维数错误（有点简陋）
             # get observation at start_ts only
-            state = root['/observations/qpos'][start_ts]
+            state = root[self.hdf5_keys['state']][start_ts]
             image_dict = dict()
             for cam_name in self.camera_names:
-                image_dict[cam_name] = root[f'/observations/images/{cam_name}'][start_ts]
+                image_dict[cam_name] = root[f'{self.hdf5_keys["images"]}/{cam_name}'][start_ts]
             # get all actions after and including start_ts
             if self.is_sim:
-                action = root['/action'][start_ts:]
+                action = root[self.hdf5_keys['action']][start_ts:]
                 action_len = episode_len - start_ts
             else:
-                action = root['/action'][max(0, start_ts - 1):] # hack, to make timesteps more aligned
+                action = root[self.hdf5_keys['action']][max(0, start_ts - 1):] # hack, to make timesteps more aligned
                 action_len = episode_len - max(0, start_ts - 1) # hack, to make timesteps more aligned
 
         padded_action = np.zeros(original_action_shape, dtype=np.float32)
@@ -73,14 +74,14 @@ class EpisodicDataset(torch.utils.data.Dataset):
         return image_data, state_data, action_data, is_pad
 
 
-def get_norm_stats(dataset_dir, episodes):
+def get_norm_stats(dataset_dir, episodes, hdf5_keys):
     all_state_data = []
     all_action_data = []
     for episode_idx in episodes:
         dataset_path = episode_idx
         with h5py.File(dataset_path, 'r') as root:
-            state = root['/observations/qpos'][()]
-            action = root['/action'][()]
+            state = root[hdf5_keys['state']][()]
+            action = root[hdf5_keys['action']][()]
         all_state_data.append(torch.from_numpy(state))
         all_action_data.append(torch.from_numpy(action))
     all_state_data = torch.cat(all_state_data, dim=0)
@@ -111,13 +112,13 @@ def collate_fn(batch):
     action_data, is_pad = [torch.stack([item[: min_len] for item in items]) for items in batch[2: ]]
     return image_data, state_data, action_data, is_pad
 
-def load_data(dataset_dir, camera_names, batch_size_train, batch_size_val, is_sim, chunk_size):
+def load_data(dataset_dir, camera_names, batch_size_train, batch_size_val, is_sim, chunk_size, hdf5_keys):
     print(f'\nData from: {dataset_dir}\n')
     # obtain train test split
     long_episodes = []
     for file in os.listdir(dataset_dir):
         with h5py.File(os.path.join(dataset_dir, file), 'r') as f:
-            if f["/action"].shape[0] >= 150:
+            if f[hdf5_keys["action"]].shape[0] >= 150:
                 long_episodes.append(os.path.join(dataset_dir, file))
 
     train_ratio = 0.8
@@ -126,11 +127,11 @@ def load_data(dataset_dir, camera_names, batch_size_train, batch_size_val, is_si
     val_indices = shuffled_indices[int(train_ratio * len(long_episodes)):]
 
     # obtain normalization stats for state and action
-    norm_stats = get_norm_stats(dataset_dir, shuffled_indices)
+    norm_stats = get_norm_stats(dataset_dir, shuffled_indices, hdf5_keys)
 
     # construct dataset and dataloader
-    train_dataset = EpisodicDataset(train_indices, camera_names, norm_stats, is_sim, chunk_size)
-    val_dataset = EpisodicDataset(val_indices, camera_names, norm_stats, is_sim, chunk_size)
+    train_dataset = EpisodicDataset(train_indices, camera_names, norm_stats, is_sim, chunk_size, hdf5_keys)
+    val_dataset = EpisodicDataset(val_indices, camera_names, norm_stats, is_sim, chunk_size, hdf5_keys)
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size_train, collate_fn=collate_fn, shuffle=True, pin_memory=True, num_workers=8, prefetch_factor=1)
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size_val, collate_fn=collate_fn, shuffle=True, pin_memory=True, num_workers=8, prefetch_factor=1)
 

@@ -1,6 +1,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 import argparse
 from pathlib import Path
+from easydict import EasyDict
 
 import numpy as np
 import torch
@@ -69,11 +70,13 @@ def get_args_parser():
 
 
 def build_ACT_model_and_optimizer(args_override):
-    parser = argparse.ArgumentParser('DETR training and evaluation script', parents=[get_args_parser()])
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser('DETR training and evaluation script', parents=[get_args_parser()])
+    # args = parser.parse_args()
 
-    for k, v in args_override.items():
-        setattr(args, k, v)
+    # for k, v in args_override.items():
+    #     setattr(args, k, v)
+
+    args = EasyDict(args_override)
 
     model = build_ACT_model(args)
     model.cuda()
