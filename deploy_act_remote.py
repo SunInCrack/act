@@ -87,6 +87,7 @@ if __name__ == "__main__":
     state_dim = metadata["state_dim"]
     num_queries = metadata["policy_config"]["num_queries"]
     camera_names = metadata["camera_names"]
+    arm = metadata["arm"]
 
     # Send 1 observation to make sure the model is loaded.
     # action = policy.infer(obs_fn())
@@ -102,6 +103,11 @@ if __name__ == "__main__":
     start = time.time()
     for i in range(max_timesteps):
         obs = robot.capture_observation()
+        # select the arm
+        if arm == 'left':
+            qpos_numpy, _ = np.split(qpos_numpy, 2, axis=-1)
+        elif arm == 'right':
+            _, qpos_numpy = np.split(qpos_numpy, 2, axis=-1)
 
         for cam_name in camera_names:
             view = cv2.putText(obs[f"observation.images.{cam_name}"], f"frame {i}", (10, 30), 
@@ -112,6 +118,18 @@ if __name__ == "__main__":
 
         action = get_act_action(obs, policy, stats, state_dim, num_queries, temporal_agg, 
                                 i, max_timesteps, camera_names)
+        if arm == 'left':
+            action = np.concate([
+                action,
+                np.array(_ROBOT_CONFIG['start_arm_joint_position'][1])
+            ], 
+            axis=0)
+        elif arm == 'right':
+            action = np.concate([
+                np.array(_ROBOT_CONFIG['start_arm_joint_position'][0]),
+                action
+            ], 
+            axis=0)
         robot.send_action(action)
 
         print(f"Average FPS: {(i + 1) / (time.time() - start)} Hz")

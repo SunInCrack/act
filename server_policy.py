@@ -129,7 +129,7 @@ def main(args) -> None:
             'stats': stats
         }
     
-    ckpt_path = os.path.join(ckpt_dir, f'policy_epoch_6000_seed_0.ckpt')
+    ckpt_path = os.path.join(ckpt_dir, f'policy_epoch_20000_seed_0.ckpt')
     policy = make_policy(policy_class, config['policy_config'])
     loading_status = policy.load_state_dict(torch.load(ckpt_path, weights_only=True))
     print(loading_status)
