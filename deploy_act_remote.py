@@ -2,7 +2,7 @@ import time
 import numpy as np
 import cv2
 
-from robot.airbot import AIRBOTPlay
+from robot.airbot import AIRBOTPlay, _ROBOT_CONFIG
 
 from client.client import WebsocketPolicyClient
 
@@ -87,7 +87,7 @@ if __name__ == "__main__":
     state_dim = metadata["state_dim"]
     num_queries = metadata["policy_config"]["num_queries"]
     camera_names = metadata["camera_names"]
-    arm = metadata["arm"]
+    arm = metadata["policy_config"]["arm"]
 
     # Send 1 observation to make sure the model is loaded.
     # action = policy.infer(obs_fn())
