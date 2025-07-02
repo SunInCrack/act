@@ -13,6 +13,10 @@ class ACTPolicy(nn.Module):
         self.model = model # CVAE decoder
         self.optimizer = optimizer
         self.kl_weight = args_override['kl_weight']
+
+        arm = args_override['arm']
+        self.arm = arm
+
         print(f'KL Weight {self.kl_weight}')
 
     def __call__(self, qpos, image, actions=None, is_pad=None):
@@ -25,9 +29,21 @@ class ACTPolicy(nn.Module):
             is_pad = is_pad[:, :self.model.num_queries] # 截断is_pad
 
             a_hat, is_pad_hat, (mu, logvar) = self.model(qpos, image, env_state, actions, is_pad)
+
+            # if self.arm == 'left':
+            #     half = a_hat.shape[-1] // 2
+            #     a_hat = a_hat[..., : half]
+            #     actions = actions[..., : half]
+            # elif self.arm == 'right':
+            #     half = a_hat.shape[-1] // 2
+            #     a_hat = a_hat[..., half:]
+            #     actions = actions[..., half:]
+            # else:   # Should not to be reached
+            #     NotImplementedError("Unknown arm!")
+
             total_kld, dim_wise_kld, mean_kld = kl_divergence(mu, logvar)
             loss_dict = dict()
-            all_l1 = F.l1_loss(actions, a_hat * is_pad_hat, reduction='none')
+            all_l1 = F.l1_loss(actions, a_hat, reduction='none')
             l1 = (all_l1 * ~is_pad.unsqueeze(-1)).mean()
             loss_dict['l1'] = l1
             loss_dict['kl'] = total_kld[0]

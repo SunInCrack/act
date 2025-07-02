@@ -89,7 +89,7 @@ def get_act_action(obs: dict, policy: WebsocketPolicyClient, stats: dict, state_
 
 
 def main(args: Args) -> None:
-    temporal_agg: bool = True
+    temporal_agg: bool = False
     max_timesteps: int = 1000
 
     obs_fn = {
@@ -111,10 +111,10 @@ def main(args: Args) -> None:
     camera_names = metadata["camera_names"]
 
     # Send 1 observation to make sure the model is loaded.
-    action = policy.infer(obs_fn())
+    # action = policy.infer(obs_fn())
     # print(action)
-    print(action.shape)
-    print(action.dtype)
+    # print(action.shape)
+    # print(action.dtype)
 
     # start = time.time()
     # for _ in range(args.num_steps):
@@ -122,8 +122,9 @@ def main(args: Args) -> None:
     # end = time.time()
 
     start = time.time()
-    for i in range(args.num_steps):
-        obs = simulate_aloha_obs()
+    for i in range(max_timesteps):
+        # obs = simulate_aloha_obs()
+        obs = simulate_aloha_obs(state_dim=state_dim)
 
         # for cam_name in camera_names:
         #     view = cv2.putText(obs[f"observation.images.{cam_name}"], f"frame {i}", (10, 30), 
@@ -139,13 +140,13 @@ def main(args: Args) -> None:
     end = time.time()
 
     print(f"Total time taken: {end - start:.2f} s")
-    print(f"Average inference time: {1000 * (end - start) / args.num_steps:.2f} ms")
+    print(f"Average inference time: {1000 * (end - start) / max_timesteps:.2f} ms")
     
     cv2.destroyAllWindows()
 
-def simulate_aloha_obs():
+def simulate_aloha_obs(state_dim=14):
     return {
-        "observation.state": np.ones((14, ), dtype=np.float32),
+        "observation.state": np.ones((state_dim, ), dtype=np.float32),
         "observation.images.cam1": np.random.randint(256, size=(480, 640, 3), dtype=np.uint8),
         "observation.images.cam2": np.random.randint(256, size=(480, 640, 3), dtype=np.uint8),
         "observation.images.cam3": np.random.randint(256, size=(480, 640, 3), dtype=np.uint8),

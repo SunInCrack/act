@@ -2,29 +2,33 @@ import os
 import dataclasses
 import enum
 import logging
-import socket
 import pickle
+import time
 import json
 import h5py
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import torch
+import numpy as np
+import cv2
+from einops import rearrange
 
 import tyro
 import argparse
 from utils import compute_dict_mean, set_seed, detach_dict # helper functions
 
 from policy import ACTPolicy, CNNMLPPolicy
-from server.policy_server import WebsocketPolicyServer
 
-class EnvMode(enum.Enum):
-    """Supported environments."""
 
-    ALOHA = "aloha"
-    ALOHA_SIM = "aloha_sim"
-    DROID = "droid"
-    LIBERO = "libero"
+def simulate_aloha_obs():
+    return {
+        "observation.state": np.ones((14, ), dtype=np.float32),
+        "observation.images.cam1": np.random.randint(256, size=(480, 640, 3), dtype=np.uint8),
+        "observation.images.cam2": np.random.randint(256, size=(480, 640, 3), dtype=np.uint8),
+        "observation.images.cam3": np.random.randint(256, size=(480, 640, 3), dtype=np.uint8),
+    }
+
 
 def make_policy(policy_class, policy_config):
     if policy_class == 'ACT':
@@ -36,6 +40,9 @@ def make_policy(policy_class, policy_config):
     return policy
 
 def main(args) -> None:
+    max_timesteps: int = 500
+    temporal_agg: bool = False
+
     set_seed(1)
     # command line parameters
     is_eval = args['eval']
@@ -93,7 +100,7 @@ def main(args) -> None:
                          'arm': args['arm'],
                          }
     elif policy_class == 'CNNMLP':
-        policy_config = {'lr': args['lr'], 'lr_backbone': lr_backbone, 'backbone' : backbone, 'num_queries': 1,
+        policy_config = {'lr': args['lr'], 'lr_backbone': args['lr_backbone'], 'backbone' : args['backbone'], 'num_queries': 1,
                          'camera_names': camera_names,}
     else:
         raise NotImplementedError
@@ -120,16 +127,16 @@ def main(args) -> None:
             'seed': args['seed'],
             'temporal_agg': args['temporal_agg'],
             'camera_names': camera_names,
+            'real_robot': not is_sim,
             'hdf5_keys': {
                 'state': state,
                 'action': action,
                 'images': images,
             },
-            'real_robot': not is_sim,
             'stats': stats
         }
     
-    ckpt_path = os.path.join(ckpt_dir, f'policy_epoch_6000_seed_0.ckpt')
+    ckpt_path = os.path.join(ckpt_dir, f'policy_epoch_20000_seed_0.ckpt')
     policy = make_policy(policy_class, config['policy_config'])
     loading_status = policy.load_state_dict(torch.load(ckpt_path, weights_only=True))
     print(loading_status)
@@ -137,25 +144,110 @@ def main(args) -> None:
     policy.cuda()
     policy.eval()
 
+    pre_process = lambda s_qpos: (s_qpos - stats['state_mean']) / stats['state_std']
+    post_process = lambda a: a * stats['action_std'] + stats['action_mean']
 
-    policy_metadata = config
+    query_frequency = policy_config['num_queries']
+    if temporal_agg:
+        query_frequency = 1
+        num_queries = policy_config['num_queries']
 
-    hostname = socket.gethostname()
-    local_ip = socket.gethostbyname(hostname)
-    logging.info("Creating server (host: %s, ip: %s)", hostname, local_ip)
+    # Start the robot
+    if not args['test']:
+        from robot.airbot import AIRBOTPlay, _ROBOT_CONFIG
+        robot = AIRBOTPlay()
 
-    server = WebsocketPolicyServer(
-        policy=policy,
-        host="0.0.0.0",
-        port=args["port"],
-        metadata=policy_metadata,
-    )
-    server.serve_forever()
+    ### evaluation loop
+    if temporal_agg:
+        all_time_actions = torch.zeros([max_timesteps, max_timesteps+num_queries, state_dim]).cuda()
 
+    with torch.inference_mode():
+        start = time.perf_counter()
+        for t in range(max_timesteps):
+            if args['test']:
+                obs = simulate_aloha_obs()
+            else:
+                obs = robot.capture_observation()
 
-# if __name__ == "__main__":
-#     logging.basicConfig(level=logging.INFO, force=True)
-#     main(tyro.cli(Args))
+            qpos_numpy = np.array(obs['observation.state'], dtype=np.float32)
+            # select the arm
+            if args['arm'] == 'left':
+                qpos_numpy, _ = np.split(qpos_numpy, 2, axis=-1)
+            elif args['arm'] == 'right':
+                _, qpos_numpy = np.split(qpos_numpy, 2, axis=-1)
+
+            qpos = pre_process(qpos_numpy)
+            qpos = torch.from_numpy(qpos).cuda().unsqueeze(0)   # .float()效率极其低下，最好在创建时就转换类型
+
+            curr_images = []
+            for cam_name in camera_names:
+                curr_image = obs[f"observation.images.{cam_name}"].transpose((2, 0, 1))
+                curr_images.append(curr_image)
+
+                if not args['test']:
+                    # display the frames
+                    view = cv2.putText(obs[f"observation.images.{cam_name}"], f"frame {t}", (10, 30), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+                    cv2.imshow(cam_name, view)
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                        break
+
+            curr_image = np.stack(curr_images, axis=0, dtype=np.float32)
+            curr_image = torch.from_numpy(curr_image / 255.0).cuda().unsqueeze(0)   # .float()效率极其低下，最好在创建时就转换类型
+
+            ### query policy
+            if config['policy_class'] == "ACT":
+                if t % query_frequency == 0:
+                    all_actions = policy(qpos, curr_image)
+                if temporal_agg:
+                    all_time_actions[[t], t:t+num_queries] = all_actions
+                    actions_for_curr_step = all_time_actions[:, t]
+                    actions_populated = torch.all(actions_for_curr_step != 0, axis=1)
+                    actions_for_curr_step = actions_for_curr_step[actions_populated]
+                    k = 0.01    # temporal aggregation coefficient
+                    exp_weights = np.exp(-k * np.arange(len(actions_for_curr_step)))
+                    exp_weights = exp_weights / exp_weights.sum()
+                    exp_weights = torch.from_numpy(exp_weights).cuda().unsqueeze(dim=1)
+                    raw_action = (actions_for_curr_step * exp_weights).sum(dim=0, keepdim=True)
+                else:
+                    raw_action = all_actions[:, t % query_frequency]
+            elif config['policy_class'] == "CNNMLP":
+                raw_action = policy(qpos, curr_image)
+            else:
+                raise NotImplementedError
+
+            ### post-process actions
+            raw_action = raw_action.squeeze(0).cpu().numpy()
+            action = post_process(raw_action)
+
+            # control the robot
+            if not args['test']:
+                if config['policy_config']['arm'] == 'left':
+                    action = np.concate([
+                        action,
+                        np.array(_ROBOT_CONFIG['start_arm_joint_position'][1])
+                    ], 
+                    axis=0)
+                elif config['policy_config']['arm'] == 'right':
+                    action = np.concate([
+                        np.array(_ROBOT_CONFIG['start_arm_joint_position'][0]),
+                        action
+                    ], 
+                    axis=0)
+                robot.send_action(action)
+
+            # print(action)
+            print(f"Average FPS: {(t + 1) / (time.perf_counter() - start)} Hz")
+            
+        end = time.perf_counter()
+
+        print(f"Total time taken: {end - start:.2f} s")
+        print(f"Average inference time: {1000 * (end - start) / max_timesteps:.2f} ms")
+    
+    if not args['test']:
+        robot.disconnect()
+        cv2.destroyAllWindows()
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, force=True)
@@ -213,8 +305,8 @@ if __name__ == '__main__':
     parser.add_argument('--dim_feedforward', action='store', type=int, help='dim_feedforward', required=False)
     parser.add_argument('--temporal_agg', action='store_true')
 
-    # for server
-    parser.add_argument('--port', action='store', type=int, default=8060, help='the port the server is listening to', required=False)
+    # for deploy
+    parser.add_argument('--test', action='store_true', help='test mode or real mode')
     parser.add_argument('--arm', choices=["left", "right", "both"], default="both", type=str, help="the arms to be used")
     
     main(vars(parser.parse_args()))

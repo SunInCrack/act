@@ -2,12 +2,13 @@ import torch
 import numpy as np
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import pickle
 import argparse
 import matplotlib.pyplot as plt
 from copy import deepcopy
+import json
 import h5py
 from tqdm import tqdm
 from einops import rearrange
@@ -60,9 +61,9 @@ def main(args):
     lr_backbone = 1e-5
     backbone = 'resnet18'
     if policy_class == 'ACT':
-        enc_layers = 4
-        dec_layers = 7
-        nheads = 8
+        if args['arm'] != 'both':
+            assert state_dim % 2 == 0, "It's a sinle arm robot"
+            state_dim //= 2
         policy_config = {'lr': args['lr'],
                          'weight_decay': args['weight_decay'],
                          'num_queries': args['chunk_size'],
@@ -70,20 +71,21 @@ def main(args):
                          'state_dim': state_dim,
                          'hidden_dim': args['hidden_dim'],
                          'dim_feedforward': args['dim_feedforward'],
-                         'lr_backbone': lr_backbone,
-                         'backbone': backbone,
+                         'lr_backbone': args['lr_backbone'],
+                         'backbone': args['backbone'],
                          'dropout': args['dropout'],
                          'pre_norm': args['pre_norm'],
                          'position_embedding': args['position_embedding'],
                          'masks': args['masks'],
                          'dilation': args['dilation'],
-                         'enc_layers': enc_layers,
-                         'dec_layers': dec_layers,
-                         'nheads': nheads,
+                         'enc_layers': args['enc_layers'],
+                         'dec_layers': args['dec_layers'],
+                         'nheads': args['nheads'],
                          'camera_names': camera_names,
+                         'arm': args['arm'],
                          }
     elif policy_class == 'CNNMLP':
-        policy_config = {'lr': args['lr'], 'lr_backbone': lr_backbone, 'backbone' : backbone, 'num_queries': 1,
+        policy_config = {'lr': args['lr'], 'lr_backbone': args['lr_backbone'], 'backbone' : args['backbone'], 'num_queries': 1,
                          'camera_names': camera_names,}
     else:
         raise NotImplementedError
@@ -121,11 +123,13 @@ def main(args):
         print()
         exit()
 
-    train_dataloader, val_dataloader, stats, _ = load_data(dataset_dir, camera_names, batch_size_train, batch_size_val, is_sim, chunk_size, config['hdf5_keys'])
+    train_dataloader, val_dataloader, stats, _ = load_data(dataset_dir, camera_names, batch_size_train, batch_size_val, is_sim, chunk_size, config['hdf5_keys'], args['arm'])
 
     # save dataset stats
     if not os.path.isdir(ckpt_dir):
         os.makedirs(ckpt_dir)
+    with open(os.path.join(ckpt_dir, "config.json"), "w") as json_file:
+        json.dump(config, json_file, indent=4)
     stats_path = os.path.join(ckpt_dir, f'dataset_stats.pkl')
     with open(stats_path, 'wb') as f:
         pickle.dump(stats, f)
@@ -458,7 +462,7 @@ if __name__ == '__main__':
     # * Transformer
     parser.add_argument('--enc_layers', default=4, type=int, # will be overridden
                         help="Number of encoding layers in the transformer")
-    parser.add_argument('--dec_layers', default=6, type=int, # will be overridden
+    parser.add_argument('--dec_layers', default=7, type=int, # will be overridden
                         help="Number of decoding layers in the transformer")
     parser.add_argument('--dropout', default=0.1, type=float,
                         help="Dropout applied in the transformer")
@@ -488,5 +492,6 @@ if __name__ == '__main__':
     parser.add_argument('--hidden_dim', action='store', type=int, help='hidden_dim', required=False)
     parser.add_argument('--dim_feedforward', action='store', type=int, help='dim_feedforward', required=False)
     parser.add_argument('--temporal_agg', action='store_true')
+    parser.add_argument('--arm', choices=["left", "right", "both"], default="both", type=str, help="the arms to be used")
     
     main(vars(parser.parse_args()))

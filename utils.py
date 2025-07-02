@@ -8,7 +8,7 @@ import IPython
 e = IPython.embed
 
 class EpisodicDataset(torch.utils.data.Dataset):
-    def __init__(self, episode_ids, camera_names, norm_stats, is_sim, chunk_size, hdf5_keys):
+    def __init__(self, episode_ids, camera_names, norm_stats, is_sim, chunk_size, hdf5_keys, arm):
         super(EpisodicDataset).__init__()
         self.episode_ids = episode_ids
         self.camera_names = camera_names
@@ -16,6 +16,7 @@ class EpisodicDataset(torch.utils.data.Dataset):
         self.is_sim = is_sim
         self.chunk_size = chunk_size
         self.hdf5_keys = hdf5_keys
+        self.arm = arm
         # self.__getitem__(0) # initialize self.is_sim
 
     def __len__(self):
@@ -63,6 +64,14 @@ class EpisodicDataset(torch.utils.data.Dataset):
         action_data = torch.from_numpy(padded_action).float()
         is_pad = torch.from_numpy(is_pad).bool()
 
+        # select the arm
+        if self.arm == 'left':
+            state_data, _ = state_data.chunk(2, dim=-1)
+            action_data, _ = action_data.chunk(2, dim=-1)
+        elif self.arm == 'right':
+            _, state_data = state_data.chunk(2, dim=-1)
+            _, action_data = action_data.chunk(2, dim=-1)
+
         # channel last
         image_data = torch.einsum('k h w c -> k c h w', image_data)
 
@@ -74,7 +83,7 @@ class EpisodicDataset(torch.utils.data.Dataset):
         return image_data, state_data, action_data, is_pad
 
 
-def get_norm_stats(dataset_dir, episodes, hdf5_keys):
+def get_norm_stats(dataset_dir, episodes, hdf5_keys, arm):
     all_state_data = []
     all_action_data = []
     for episode_idx in episodes:
@@ -98,6 +107,18 @@ def get_norm_stats(dataset_dir, episodes, hdf5_keys):
     state_std = all_state_data.std(dim=0, keepdim=True)
     state_std = torch.clip(state_std, 1e-2, np.inf) # clipping
 
+    # select the arm
+    if arm == 'left':
+        action_mean, _ = action_mean.chunk(2, dim=-1)
+        action_std, _ = action_std.chunk(2, dim=-1)
+        state_mean, _ = state_mean.chunk(2, dim=-1)
+        state_std, _ = state_std.chunk(2, dim=-1)
+    elif arm == 'right':
+        _, action_mean = action_mean.chunk(2, dim=-1)
+        _, action_std = action_std.chunk(2, dim=-1)
+        _, state_mean = state_mean.chunk(2, dim=-1)
+        _, state_std = state_std.chunk(2, dim=-1)
+
     stats = {"action_mean": action_mean.numpy().squeeze(), "action_std": action_std.numpy().squeeze(),
              "state_mean": state_mean.numpy().squeeze(), "state_std": state_std.numpy().squeeze(),
              "example_state": state}
@@ -112,7 +133,7 @@ def collate_fn(batch):
     action_data, is_pad = [torch.stack([item[: min_len] for item in items]) for items in batch[2: ]]
     return image_data, state_data, action_data, is_pad
 
-def load_data(dataset_dir, camera_names, batch_size_train, batch_size_val, is_sim, chunk_size, hdf5_keys):
+def load_data(dataset_dir, camera_names, batch_size_train, batch_size_val, is_sim, chunk_size, hdf5_keys, arm):
     print(f'\nData from: {dataset_dir}\n')
     # obtain train test split
     long_episodes = []
@@ -127,11 +148,11 @@ def load_data(dataset_dir, camera_names, batch_size_train, batch_size_val, is_si
     val_indices = shuffled_indices[int(train_ratio * len(long_episodes)):]
 
     # obtain normalization stats for state and action
-    norm_stats = get_norm_stats(dataset_dir, shuffled_indices, hdf5_keys)
+    norm_stats = get_norm_stats(dataset_dir, shuffled_indices, hdf5_keys, arm)
 
     # construct dataset and dataloader
-    train_dataset = EpisodicDataset(train_indices, camera_names, norm_stats, is_sim, chunk_size, hdf5_keys)
-    val_dataset = EpisodicDataset(val_indices, camera_names, norm_stats, is_sim, chunk_size, hdf5_keys)
+    train_dataset = EpisodicDataset(train_indices, camera_names, norm_stats, is_sim, chunk_size, hdf5_keys, arm)
+    val_dataset = EpisodicDataset(val_indices, camera_names, norm_stats, is_sim, chunk_size, hdf5_keys, arm)
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size_train, collate_fn=collate_fn, shuffle=True, pin_memory=True, num_workers=8, prefetch_factor=1)
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size_val, collate_fn=collate_fn, shuffle=True, pin_memory=True, num_workers=8, prefetch_factor=1)
 
