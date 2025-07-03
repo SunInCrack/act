@@ -17,6 +17,7 @@ def get_act_action(obs: dict, policy: WebsocketPolicyClient, stats: dict, state_
     post_process = lambda a: a * stats['action_std'] + stats['action_mean']
 
     query_frequency = num_queries
+    # query_frequency = 10
     if temporal_agg:
         query_frequency = 1
         num_queries = num_queries
@@ -49,7 +50,8 @@ def get_act_action(obs: dict, policy: WebsocketPolicyClient, stats: dict, state_
         actions_for_curr_step = all_time_actions[:, t]
         actions_populated = np.all(actions_for_curr_step != 0, axis=1)
         actions_for_curr_step = actions_for_curr_step[actions_populated]
-        k = 0.01
+        # k = 0.01
+        k = -0.01
         exp_weights = np.exp(-k * np.arange(len(actions_for_curr_step)))
         exp_weights = exp_weights / exp_weights.sum()
         exp_weights = np.expand_dims(exp_weights, axis=1)
@@ -65,8 +67,8 @@ def get_act_action(obs: dict, policy: WebsocketPolicyClient, stats: dict, state_
     return target_qpos
 
 if __name__ == "__main__":
-    temporal_agg: bool = True
-    max_timesteps: int = 1000
+    temporal_agg: bool = False
+    max_timesteps: int = 10000
 
     robot = AIRBOTPlay()
     print("obs1:", robot.capture_observation())
@@ -105,9 +107,9 @@ if __name__ == "__main__":
         obs = robot.capture_observation()
         # select the arm
         if arm == 'left':
-            qpos_numpy, _ = np.split(qpos_numpy, 2, axis=-1)
+            obs["observation.state"], _ = np.split(obs["observation.state"], 2, axis=-1)
         elif arm == 'right':
-            _, qpos_numpy = np.split(qpos_numpy, 2, axis=-1)
+            _, obs["observation.state"] = np.split(obs["observation.state"], 2, axis=-1)
 
         for cam_name in camera_names:
             view = cv2.putText(obs[f"observation.images.{cam_name}"], f"frame {i}", (10, 30), 
@@ -119,17 +121,20 @@ if __name__ == "__main__":
         action = get_act_action(obs, policy, stats, state_dim, num_queries, temporal_agg, 
                                 i, max_timesteps, camera_names)
         if arm == 'left':
-            action = np.concate([
+            action = np.concat([
                 action,
-                np.array(_ROBOT_CONFIG['start_arm_joint_position'][1])
+                np.array(_ROBOT_CONFIG['start_arm_joint_position'][1]),
+                np.array([0.0], dtype=np.float32)
             ], 
             axis=0)
         elif arm == 'right':
-            action = np.concate([
+            action = np.concat([
                 np.array(_ROBOT_CONFIG['start_arm_joint_position'][0]),
+                np.array([0.0], dtype=np.float32),
                 action
             ], 
             axis=0)
+        # print(action.shape)
         robot.send_action(action)
 
         print(f"Average FPS: {(i + 1) / (time.time() - start)} Hz")

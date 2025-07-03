@@ -223,13 +223,13 @@ def main(args) -> None:
             # control the robot
             if not args['test']:
                 if config['policy_config']['arm'] == 'left':
-                    action = np.concate([
+                    action = np.concat([
                         action,
                         np.array(_ROBOT_CONFIG['start_arm_joint_position'][1])
                     ], 
                     axis=0)
                 elif config['policy_config']['arm'] == 'right':
-                    action = np.concate([
+                    action = np.concat([
                         np.array(_ROBOT_CONFIG['start_arm_joint_position'][0]),
                         action
                     ], 
